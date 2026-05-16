@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>TrainReady - Premium Gym & Saitama Tracker</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
+
+  :root {
+    --bg-base: #020617; 
+    --panel-bg: rgba(30, 41, 59, 0.6);
+    --panel-border: rgba(255, 255, 255, 0.1);
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --primary: #3b82f6;
+    --primary-hover: #60a5fa;
+    --accent: #0ea5e9;
+    
+    /* Muscle Status Colors */
+    --status-ready: #10b981; 
+    --status-mild: #eab308; 
+    --status-moderate: #f97316; 
+    --status-heavy: #ef4444; 
+    --status-high-risk: #8b5cf6; 
+    --status-unknown: #334155; 
+
+    /* Saitama Colors */
+    --saitama-suit: #fbbf24;
+    --saitama-cape: #f8fafc;
+    --saitama-skin: #ffdfc4;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+  
+  body { 
+    background: radial-gradient(circle at top left, #0f172a 0%, #020617 100%);
+    color: var(--text-main); 
+    display: flex; 
+    height: 100vh; 
+    overflow: hidden; 
+  }
+
+  /* Layout */
+  #sidebar { 
+    width: 260px; 
+    background: var(--panel-bg); 
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-right: 1px solid var(--panel-border); 
+    display: flex; 
+    flex-direction: column; 
+    overflow-y: auto; 
+    z-index: 10;
+  }
+  #sidebar h1 { 
+    padding: 25px 20px; 
+    font-size: 1.8rem; 
+    text-align: center; 
+    background: linear-gradient(90deg, #38bdf8, #818cf8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    border-bottom: 1px solid var(--panel-border); 
+    font-weight: 900;
+  }
+  .nav-btn { 
+    background: none; border: none; color: var(--text-muted); 
+    padding: 18px 25px; text-align: left; font-size: 1rem; 
+    cursor: pointer; transition: all 0.3s ease; 
+    font-weight: 600;
+    position: relative;
+  }
+  .nav-btn:hover { color: var(--text-main); background: rgba(255,255,255,0.05); }
+  .nav-btn.active { color: #fff; background: rgba(59, 130, 246, 0.15); }
+  .nav-btn.active::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--primary);
+  }
+  
+  #main-content { flex: 1; position: relative; overflow-y: auto; padding: 30px; padding-bottom: 100px; }
+  .tab-content { display: none; max-width: 1000px; margin: 0 auto; }
+  .tab-content.active { display: block; animation: fadeInUp 0.4s ease-out forwards; }
+  
+  /* Cards */
+  .card { 
+    background: var(--panel-bg); 
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-radius: 16px; 
+    padding: 25px; 
+    margin-bottom: 25px; 
+    border: 1px solid var(--panel-border); 
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3); 
+    transition: transform 0.3s ease;
+  }
+  .card:hover { transform: translateY(-2px); }
+  .card h2 { margin-bottom: 20px; font-size: 1.4rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px; font-weight: 800; }
+  
+  /* Saitama Tracker Styles */
+  .saitama-card {
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.15), rgba(239, 68, 68, 0.1));
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .saitama-card::before {
+    content: ''; position: absolute; top:0; left:0; right:0; bottom:0;
+    background: url('data:image/svg+xml;utf8,<svg width="20" height="20" xmlns="http://www.w3.org/2000/svg"><circle cx="2" cy="2" r="1" fill="rgba(255,255,255,0.05)"/></svg>');
+    z-index: 0; pointer-events: none;
+  }
+  .saitama-avatar { width: 120px; height: 120px; flex-shrink: 0; position: relative; z-index: 1; }
+  .saitama-content { flex: 1; position: relative; z-index: 1; }
+  .saitama-quote { font-style: italic; color: #fbbf24; font-size: 1.1rem; margin-bottom: 10px; font-weight: 600; }
+  .limiter-bar-bg { width: 100%; height: 12px; background: rgba(0,0,0,0.4); border-radius: 6px; overflow: hidden; margin-top: 15px; border: 1px solid rgba(255,255,255,0.1); }
+  .limiter-bar-fill { height: 100%; background: linear-gradient(90deg, #fbbf24, #ef4444); transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); width: 0%; box-shadow: 0 0 10px rgba(239, 68, 68, 0.5); }
+  
+  /* SVG Saitama Animations */
+  .s-face-normal { transition: opacity 0.3s; }
+  .s-face-serious { opacity: 0; transition: opacity 0.3s; }
+  .is-serious .s-face-normal { opacity: 0; }
+  .is-serious .s-face-serious { opacity: 1; }
+  .is-serious .s-aura { animation: auraPulse 2s infinite alternate; }
+  @keyframes auraPulse { from { filter: drop-shadow(0 0 10px rgba(239,68,68,0.3)); } to { filter: drop-shadow(0 0 25px rgba(239,68,68,0.8)); } }
+
+  /* Map Container */
+  .map-container { display: flex; justify-content: center; align-items: center; flex-direction: column; min-height: 550px; }
+  .view-controls { display: flex; gap: 10px; margin-bottom: 25px; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 12px; border: 1px solid var(--panel-border); }
+  .view-btn { background: transparent; color: var(--text-muted); border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s; }
+  .view-btn.active { background: var(--primary); color: #fff; box-shadow: 0 0 15px rgba(59,130,246,0.4); }
+
+  svg.human-map { max-height: 70vh; width: 100%; max-width: 450px; overflow: visible; filter: drop-shadow(0 15px 25px rgba(0,0,0,0.5)); }
+  .body-base { fill: #0f172a; stroke: #1e293b; stroke-width: 2; }
+  .muscle-path { stroke: #020617; stroke-width: 1.5; cursor: pointer; transition: all 0.3s; }
+  .muscle-path:hover { stroke: #fff; stroke-width: 2.5; filter: drop-shadow(0 0 12px currentColor) brightness(1.3); transform: scale(1.01); transform-origin: center; }
+  
+  .status-ready { fill: var(--status-ready); }
+  .status-mild { fill: var(--status-mild); }
+  .status-moderate { fill: var(--status-moderate); }
+  .status-heavy { fill: var(--status-heavy); }
+  .status-high-risk { fill: var(--status-high-risk); }
+  .status-unknown { fill: var(--status-unknown); }
+
+  /* Badges */
+  .badge { display: inline-block; padding: 6px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; }
+  .badge.ready { background: rgba(16,185,129,0.2); color: #34d399; border: 1px solid rgba(16,185,129,0.5); }
+  .badge.mild { background: rgba(234,179,8,0.2); color: #facc15; border: 1px solid rgba(234,179,8,0.5); }
+  .badge.moderate { background: rgba(249,115,22,0.2); color: #fb923c; border: 1px solid rgba(249,115,22,0.5); }
+  .badge.heavy { background: rgba(239,68,68,0.2); color: #f87171; border: 1px solid rgba(239,68,68,0.5); }
+  .badge.high-risk { background: rgba(139,92,246,0.2); color: #a78bfa; border: 1px solid rgba(139,92,246,0.5); }
+
+  /* Side Panel */
+  #side-panel {
+    position: fixed; right: -450px; top: 0; width: 400px; height: 100vh;
+    background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(20px);
+    border-left: 1px solid var(--panel-border);
+    transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1); overflow-y: auto; z-index: 100; box-shadow: -10px 0 30px rgba(0,0,0,0.6);
+  }
+  #side-panel.open { right: 0; }
+  .panel-header { display: flex; justify-content: space-between; align-items: center; padding: 25px; border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.2); }
+  .close-btn { background: rgba(255,255,255,0.1); border: none; color: #fff; width: 36px; height: 36px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; }
+  .close-btn:hover { background: rgba(239,68,68,0.8); transform: rotate(90deg); }
+  .panel-content { padding: 25px; }
+
+  /* Forms */
+  .form-group { margin-bottom: 20px; }
+  .form-group label { display: block; margin-bottom: 8px; font-size: 0.9rem; color: var(--text-muted); font-weight: 600; }
+  .form-control { width: 100%; padding: 12px 15px; border-radius: 10px; border: 1px solid var(--panel-border); background: rgba(0,0,0,0.2); color: var(--text-main); font-size: 1rem; transition: all 0.3s; }
+  .form-control:focus { outline: none; border-color: var(--primary); background: rgba(0,0,0,0.4); box-shadow: 0 0 0 3px rgba(59,130,246,0.2); }
+  
+  .btn { width: 100%; padding: 14px; border-radius: 10px; border: none; font-size: 1rem; font-weight: 800; cursor: pointer; background: linear-gradient(135deg, var(--primary), var(--accent)); color: #fff; transition: all 0.3s; box-shadow: 0 4px 15px rgba(59,130,246,0.4); }
+  .btn:hover { filter: brightness(1.1); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59,130,246,0.6); }
+  .btn-secondary { background: rgba(255,255,255,0.1); box-shadow: none; }
+  .btn-secondary:hover { background: rgba(255,255,255,0.15); box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 25px; }
+
+  /* Mobile Responsive */
+  @media (max-width: 768px) {
+    body { flex-direction: column; }
+    #sidebar { width: 100%; height: 70px; flex-direction: row; border-right: none; border-bottom: 1px solid var(--panel-border); overflow-x: auto; overflow-y: hidden; z-index: 50; padding: 0; background: rgba(15,23,42,0.9); }
+    #sidebar h1 { display: none; }
+    .nav-btn { flex: 0 0 auto; text-align: center; padding: 0 20px; border-bottom: 3px solid transparent; display: flex; align-items: center; justify-content: center; white-space: nowrap; }
+    .nav-btn.active { background: transparent; border-bottom-color: var(--primary); }
+    .nav-btn.active::before { display: none; }
+    #main-content { padding: 15px; padding-bottom: 30px; }
+    .saitama-card { flex-direction: column; text-align: center; }
+    
+    #side-panel { right: 0; bottom: -100%; top: auto; width: 100%; height: 85vh; border-left: none; border-top: 1px solid var(--panel-border); border-radius: 24px 24px 0 0; transition: bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+    #side-panel.open { bottom: 0; right: 0; }
+  }
+
+  @keyframes fadeInUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+  .toggle-container { display: flex; background: rgba(0,0,0,0.3); border-radius: 10px; margin-bottom: 25px; overflow: hidden; border: 1px solid var(--panel-border); padding: 4px; }
+  .toggle-btn { flex: 1; padding: 10px; border: none; background: transparent; color: var(--text-muted); cursor: pointer; transition: 0.3s; font-weight: 600; border-radius: 6px; }
+  .toggle-btn.active { background: var(--primary); color: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+  
+  .hidden { display: none !important; }
+  .text-sm { font-size: 0.85rem; }
+  .mt-1 { margin-top: 15px; }
+  
+  /* Toast Notification (Auto Save Feedback) */
+  #toast-container { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+  .toast { background: rgba(16, 185, 129, 0.9); color: #fff; padding: 12px 24px; border-radius: 30px; font-weight: 600; font-size: 0.95rem; box-shadow: 0 5px 15px rgba(0,0,0,0.4); backdrop-filter: blur(5px); animation: toastIn 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards, toastOut 0.3s 2.5s forwards; opacity: 0; transform: translateY(20px); border: 1px solid rgba(255,255,255,0.2); display: flex; align-items: center; gap: 8px; }
+  @keyframes toastIn { to { opacity: 1; transform: translateY(0); } }
+  @keyframes toastOut { to { opacity: 0; transform: translateY(-10px); } }
+
+  /* Tooltip */
+  #tooltip { position: fixed; background: rgba(15,23,42,0.95); backdrop-filter: blur(10px); color: #fff; padding: 15px; border-radius: 12px; pointer-events: none; opacity: 0; transition: opacity 0.2s; z-index: 1000; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 25px rgba(0,0,0,0.5); min-width: 150px; }
+  #tooltip h4 { margin-bottom: 8px; color: var(--accent); text-transform: capitalize; font-size: 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px; }
+  #tooltip p { font-size: 0.9rem; margin-bottom: 4px; color: var(--text-muted); }
+  #tooltip p span { color: #fff; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div id="toast-container"></div>
+
+<div id="tooltip">
+  <h4 id="tt-name">Otot</h4>
+  <p>Status: <span id="tt-status">Ready</span></p>
+  <p>Readiness: <span id="tt-score">100</span></p>
+  <p>Pemulihan: <span id="tt-time">0j</span></p>
+</div>
+
+<!-- Sidebar Navigation -->
+<nav id="sidebar">
+  <h1>TrainReady</h1>
+  <button class="nav-btn active" data-target="tab-map">Anatomi Otot</button>
+  <button class="nav-btn" data-target="tab-dashboard">Dashboard & Saitama</button>
+  <button class="nav-btn" data-target="tab-split">Split Planner</button>
+  <button class="nav-btn" data-target="tab-overload">Overload</button>
+  <button class="nav-btn" data-target="tab-cardio">Kardio & Jantung</button>
+  <button class="nav-btn" data-target="tab-running">Program Lari</button>
+  <button class="nav-btn" data-target="tab-library">Pustaka</button>
+  <button class="nav-btn" data-target="tab-settings">Pengaturan</button>
+</nav>
+
+<!-- Main Content -->
+<main id="main-content">
+  
+  <!-- TAB: Muscle Map -->
+  <section id="tab-map" class="tab-content active">
+    <div class="map-container">
+      <div class="view-controls">
+        <button class="view-btn active" id="btn-front">Depan</button>
+        <button class="view-btn" id="btn-back">Belakang</button>
+      </div>
+      
+      <!-- FRONT SVG -->
+      <svg id="svg-front" class="human-map" viewBox="0 0 200 450" xmlns="http://www.w3.org/2000/svg">
+        <path class="body-base" d="M 100 20 C 85 20 75 35 75 50 C 60 55 45 70 40 90 C 35 140 45 180 65 200 L 70 240 C 65 290 65 350 70 420 L 85 420 C 90 350 95 280 100 280 C 105 280 110 350 115 420 L 130 420 C 135 350 135 290 130 240 L 135 200 C 155 180 165 140 160 90 C 155 70 140 55 125 50 C 125 35 115 20 100 20 Z" />
+        <path fill="#334155" d="M 100 20 C 85 20 80 35 85 50 L 115 50 C 120 35 115 20 100 20 Z" />
+        <path fill="#334155" d="M 90 50 L 110 50 L 115 65 L 85 65 Z" />
+        <path class="muscle-path status-unknown" data-muscle="deltoid" d="M 85 65 C 65 65 50 75 45 100 C 42 115 55 120 60 110 C 65 100 70 85 85 75 Z" />
+        <path class="muscle-path status-unknown" data-muscle="deltoid" d="M 115 65 C 135 65 150 75 155 100 C 158 115 145 120 140 110 C 135 100 130 85 115 75 Z" />
+        <path class="muscle-path status-unknown" data-muscle="chest" d="M 99 70 C 80 70 65 75 60 95 C 60 115 80 115 99 110 Z" />
+        <path class="muscle-path status-unknown" data-muscle="chest" d="M 101 70 C 120 70 135 75 140 95 C 140 115 120 115 101 110 Z" />
+        <path class="muscle-path status-unknown" data-muscle="biceps" d="M 55 115 C 40 125 40 150 48 160 C 55 150 62 135 55 115 Z" />
+        <path class="muscle-path status-unknown" data-muscle="biceps" d="M 145 115 C 160 125 160 150 152 160 C 145 150 138 135 145 115 Z" />
+        <path class="muscle-path status-unknown" data-muscle="forearm" d="M 46 165 C 35 175 35 205 45 210 C 52 195 55 175 46 165 Z" />
+        <path class="muscle-path status-unknown" data-muscle="forearm" d="M 154 165 C 165 175 165 205 155 210 C 148 195 145 175 154 165 Z" />
+        <path class="muscle-path status-unknown" data-muscle="abs" d="M 85 115 L 115 115 C 115 130 110 160 100 170 C 90 160 85 130 85 115 Z" />
+        <path class="muscle-path status-unknown" data-muscle="oblique" d="M 60 110 C 60 130 75 160 82 160 L 82 115 Z" />
+        <path class="muscle-path status-unknown" data-muscle="oblique" d="M 140 110 C 140 130 125 160 118 160 L 118 115 Z" />
+        <path class="muscle-path status-unknown" data-muscle="quadriceps" d="M 98 180 C 70 180 60 230 70 290 C 85 285 95 250 95 190 Z" />
+        <path class="muscle-path status-unknown" data-muscle="quadriceps" d="M 102 180 C 130 180 140 230 130 290 C 115 285 105 250 105 190 Z" />
+        <path class="muscle-path status-unknown" data-muscle="calves" d="M 70 305 C 60 325 65 380 75 390 C 82 360 82 320 70 305 Z" />
+        <path class="muscle-path status-unknown" data-muscle="calves" d="M 130 305 C 140 325 135 380 125 390 C 118 360 118 320 130 305 Z" />
+      </svg>
+      
+      <!-- BACK SVG -->
+      <svg id="svg-back" class="human-map hidden" viewBox="0 0 200 450" xmlns="http://www.w3.org/2000/svg">
+        <path class="body-base" d="M 100 20 C 85 20 75 35 75 50 C 60 55 45 70 40 90 C 35 140 45 180 65 200 L 70 240 C 65 290 65 350 70 420 L 85 420 C 90 350 95 280 100 280 C 105 280 110 350 115 420 L 130 420 C 135 350 135 290 130 240 L 135 200 C 155 180 165 140 160 90 C 155 70 140 55 125 50 C 125 35 115 20 100 20 Z" />
+        <path fill="#334155" d="M 100 20 C 85 20 80 35 85 50 L 115 50 C 120 35 115 20 100 20 Z" />
+        <path class="muscle-path status-unknown" data-muscle="traps" d="M 100 50 C 80 50 70 65 60 75 L 140 75 C 130 65 120 50 100 50 Z" />
+        <path class="muscle-path status-unknown" data-muscle="deltoid" d="M 60 75 C 45 75 40 90 45 105 C 50 115 65 105 70 85 Z" />
+        <path class="muscle-path status-unknown" data-muscle="deltoid" d="M 140 75 C 155 75 160 90 155 105 C 150 115 135 105 130 85 Z" />
+        <path class="muscle-path status-unknown" data-muscle="lats" d="M 70 85 L 100 95 L 100 150 C 80 145 60 115 70 85 Z" />
+        <path class="muscle-path status-unknown" data-muscle="lats" d="M 130 85 L 100 95 L 100 150 C 120 145 140 115 130 85 Z" />
+        <path class="muscle-path status-unknown" data-muscle="lower back" d="M 85 150 L 115 150 L 110 180 L 90 180 Z" />
+        <path class="muscle-path status-unknown" data-muscle="triceps" d="M 48 105 C 30 120 35 150 45 160 C 55 145 55 120 48 105 Z" />
+        <path class="muscle-path status-unknown" data-muscle="triceps" d="M 152 105 C 170 120 165 150 155 160 C 145 145 145 120 152 105 Z" />
+        <path class="muscle-path status-unknown" data-muscle="forearm" d="M 45 165 C 35 175 35 205 45 210 C 52 195 55 175 45 165 Z" />
+        <path class="muscle-path status-unknown" data-muscle="forearm" d="M 155 165 C 165 175 165 205 155 210 C 148 195 145 175 155 165 Z" />
+        <path class="muscle-path status-unknown" data-muscle="glutes" d="M 99 180 C 70 180 60 215 70 240 C 85 245 99 220 99 180 Z" />
+        <path class="muscle-path status-unknown" data-muscle="glutes" d="M 101 180 C 130 180 140 215 130 240 C 115 245 101 220 101 180 Z" />
+        <path class="muscle-path status-unknown" data-muscle="hamstrings" d="M 72 245 C 65 270 70 290 75 300 C 85 290 85 260 88 240 Z" />
+        <path class="muscle-path status-unknown" data-muscle="hamstrings" d="M 128 245 C 135 270 130 290 125 300 C 115 290 115 260 112 240 Z" />
+        <path class="muscle-path status-unknown" data-muscle="calves" d="M 72 310 C 55 330 65 370 75 385 C 85 360 85 325 72 310 Z" />
+        <path class="muscle-path status-unknown" data-muscle="calves" d="M 128 310 C 145 330 135 370 125 385 C 115 360 115 325 128 310 Z" />
+      </svg>
+    </div>
+  </section>
+
+  <!-- TAB: Dashboard & Saitama -->
+  <section id="tab-dashboard" class="tab-content">
+    
+    <!-- SAITAMA TRACKER CARD -->
+    <div class="card saitama-card" id="saitama-container">
+      <div class="saitama-avatar">
+        <svg viewBox="0 0 100 100" class="s-aura" style="width:100%; height:100%;">
+          <!-- Body / Suit -->
+          <path d="M 20 100 C 20 70 30 60 50 60 C 70 60 80 70 80 100 Z" fill="var(--saitama-suit)"/>
+          <!-- Cape / Collar -->
+          <path d="M 10 100 C 15 80 25 70 40 70 C 45 70 55 70 60 70 C 75 70 85 80 90 100 Z" fill="var(--saitama-cape)"/>
+          <path d="M 35 70 C 35 80 45 85 50 85 C 55 85 65 80 65 70 Z" fill="var(--saitama-suit)"/>
+          <!-- Head / Egg -->
+          <ellipse cx="50" cy="45" rx="22" ry="28" fill="var(--saitama-skin)"/>
+          
+          <!-- NORMAL FACE -->
+          <g class="s-face-normal">
+            <!-- Eyes (OK) -->
+            <ellipse cx="40" cy="40" rx="1.5" ry="2" fill="#000"/>
+            <ellipse cx="60" cy="40" rx="1.5" ry="2" fill="#000"/>
+            <!-- Mouth -->
+            <line x1="45" y1="55" x2="55" y2="55" stroke="#000" stroke-width="1.5"/>
+          </g>
+          
+          <!-- SERIOUS FACE -->
+          <g class="s-face-serious">
+            <!-- Brows / Angry Shadows -->
+            <path d="M 32 35 L 43 40 L 45 42 L 35 42 Z" fill="rgba(0,0,0,0.2)"/>
+            <path d="M 68 35 L 57 40 L 55 42 L 65 42 Z" fill="rgba(0,0,0,0.2)"/>
+            <line x1="33" y1="36" x2="44" y2="40" stroke="#000" stroke-width="1.5"/>
+            <line x1="67" y1="36" x2="56" y2="40" stroke="#000" stroke-width="1.5"/>
+            <!-- Intense Eyes -->
+            <circle cx="41" cy="42" r="1.5" fill="#000"/>
+            <circle cx="59" cy="42" r="1.5" fill="#000"/>
+            <!-- Shadowed Mouth / Chin -->
+            <path d="M 42 55 Q 50 52 58 55" fill="none" stroke="#000" stroke-width="1.5"/>
+            <path d="M 45 60 Q 50 63 55 60" fill="none" stroke="rgba(0,0,0,0.3)" stroke-width="2"/>
+          </g>
+        </svg>
+      </div>
+      <div class="saitama-content">
+        <h2 style="margin-bottom:5px; font-size:1.5rem; border:none; padding:0;">Saitama Limiter Detector</h2>
+        <p class="saitama-quote" id="saitama-text">"Ok. Ayo mulai latihan hari ini."</p>
+        <p style="font-size:0.9rem; color:#e2e8f0;">Progres menghancurkan limiter minggu ini:</p>
+        <div class="limiter-bar-bg">
+          <div class="limiter-bar-fill" id="saitama-bar"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9)); border-color: rgba(59,130,246,0.3);">
+      <h2>Ringkasan Mingguan</h2>
+      <div class="grid-3" id="dash-overview"></div>
+    </div>
+    <div class="card">
+      <h2>Saran Latihan Hari Ini</h2>
+      <div id="dash-suggestion"></div>
+    </div>
+  </section>
+
+  <!-- TAB: Training Split Planner -->
+  <section id="tab-split" class="tab-content">
+    <div class="card">
+      <h2>Rekomendasi Split Latihan</h2>
+      <p class="text-muted mb-1">Dihitung otomatis berdasarkan kelelahan otot saat ini.</p>
+      <div id="split-result"></div>
+    </div>
+  </section>
+
+  <!-- TAB: Progressive Overload -->
+  <section id="tab-overload" class="tab-content">
+    <div class="card">
+      <h2>Peluang Progressive Overload</h2>
+      <div id="overload-list" class="grid-2"></div>
+    </div>
+  </section>
+
+  <!-- TAB: Cardio / Heart -->
+  <section id="tab-cardio" class="tab-content">
+    <div class="card">
+      <h2>Status Kardio & Jantung</h2>
+      <div id="cardio-summary"></div>
+    </div>
+    <div class="card">
+      <h2>Catat Sesi Kardio</h2>
+      <form id="form-cardio">
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Jenis Latihan</label>
+            <select class="form-control" id="c-type" required>
+              <option value="running">Lari (Running)</option>
+              <option value="cycling">Sepeda</option>
+              <option value="walking">Jalan Kaki</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Durasi (Menit)</label>
+            <input type="number" class="form-control" id="c-dur" required>
+          </div>
+          <div class="form-group">
+            <label>Rata-rata HR (BPM)</label>
+            <input type="number" class="form-control" id="c-hr" placeholder="Cth: 130">
+          </div>
+          <div class="form-group">
+            <label>RPE (1-10)</label>
+            <input type="number" class="form-control" id="c-rpe" min="1" max="10" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Gejala (Tahan Ctrl/Cmd untuk pilih banyak)</label>
+          <select class="form-control" id="c-symp" multiple style="height:100px;">
+            <option value="none" selected>Tidak Ada Gejala</option>
+            <option value="chest_pain">Nyeri Dada</option>
+            <option value="dizziness">Pusing / Hampir Pingsan</option>
+            <option value="palpitation">Jantung Berdebar (Palpitasi)</option>
+          </select>
+        </div>
+        <button type="submit" class="btn">Simpan Kardio</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- TAB: Running Plan -->
+  <section id="tab-running" class="tab-content">
+    <div class="card">
+      <h2>Program Peningkatan Lari</h2>
+      <div id="running-recs"></div>
+    </div>
+  </section>
+
+  <!-- TAB: Exercise Library -->
+  <section id="tab-library" class="tab-content">
+    <div class="card">
+      <h2>Pustaka Gerakan</h2>
+      <div id="library-list"></div>
+    </div>
+  </section>
+
+  <!-- TAB: Settings -->
+  <section id="tab-settings" class="tab-content">
+    <div class="card">
+      <h2>Pengaturan Akun <span style="font-size:0.8rem; color:var(--primary);">(Auto-Save Aktif)</span></h2>
+      <div class="form-group">
+        <label>Umur (Untuk HR Max: 220-umur)</label>
+        <input type="number" class="form-control auto-save-input" id="set-age" value="31">
+      </div>
+      <div class="form-group">
+        <label>Custom HR Max (Opsional)</label>
+        <input type="number" class="form-control auto-save-input" id="set-hrmax" placeholder="Biarkan kosong jika pakai rumus">
+      </div>
+      <button class="btn mb-1" id="btn-save-settings">Simpan Pengaturan</button>
+      <hr style="border-color:var(--panel-border); margin:25px 0;">
+      <div class="grid-2">
+        <button class="btn btn-secondary" id="btn-export">Export Data (JSON)</button>
+        <button class="btn btn-secondary" id="btn-reset" style="background:rgba(239,68,68,0.2); color:#f87171; border:1px solid rgba(239,68,68,0.5);">Reset Semua Data</button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- Side Panel for Logging -->
+<aside id="side-panel">
+  <div class="panel-header">
+    <h2 id="sp-title" style="text-transform: capitalize; margin:0; font-size:1.3rem;">Pilih Otot</h2>
+    <button class="close-btn" id="btn-close-panel">&times;</button>
+  </div>
+  <div class="panel-content" id="sp-content">
+    
+    <div id="sp-status-card" class="card" style="background:rgba(0,0,0,0.3); padding:20px; margin-bottom:25px; box-shadow:none;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <strong style="color:var(--text-muted)">Status:</strong> 
+        <span id="sp-status-text" class="badge">Unknown</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <strong style="color:var(--text-muted)">Kesiapan (0-100):</strong> 
+        <span style="font-weight:bold; color:#fff; font-size:1.2rem;" id="sp-readiness">0</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <strong style="color:var(--text-muted)">Pemulihan Sisa:</strong> 
+        <span style="font-weight:bold; color:var(--accent);" id="sp-timer">0j</span>
+      </div>
+      <div style="width: 100%; background: rgba(255,255,255,0.1); height: 8px; border-radius: 4px; overflow: hidden; margin-top: 10px;">
+        <div id="sp-progress" style="height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); transition: width 0.5s ease; width:0%"></div>
+      </div>
+      <p class="text-sm mt-1" style="color:var(--text-muted); line-height:1.5;" id="sp-rec">Klik otot di peta untuk melihat detail dan mencatat latihan.</p>
+    </div>
+
+    <!-- Toggle Quick/Advanced Log -->
+    <div class="toggle-container" id="log-toggle" style="display:none;">
+      <button class="toggle-btn active" data-mode="quick">Quick Log</button>
+      <button class="toggle-btn" data-mode="advanced">Advanced Log</button>
+    </div>
+
+    <form id="form-log" style="display:none;">
+      <input type="hidden" id="log-muscle">
+      
+      <div class="form-group">
+        <label>Gerakan Latihan</label>
+        <select class="form-control" id="log-exercise" required></select>
+      </div>
+      
+      <div id="sec-muscles-container" class="form-group hidden" style="background:rgba(59,130,246,0.1); padding:15px; border-radius:10px; border:1px solid rgba(59,130,246,0.3);">
+        <label style="color:var(--primary)">Otot Sekunder Terdeteksi:</label>
+        <div id="sec-muscles-list" class="text-sm"></div>
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label>Set</label>
+          <input type="number" class="form-control" id="log-sets" required min="1">
+        </div>
+        <div class="form-group">
+          <label>Reps per Set</label>
+          <input type="number" class="form-control" id="log-reps" required min="1">
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label>Beban (Kg)</label>
+          <input type="number" class="form-control" id="log-weight" required min="0" step="0.5">
+        </div>
+        <div class="form-group">
+          <label>RIR (0-5+)</label>
+          <input type="number" class="form-control" id="log-rir" required min="0" max="5" placeholder="Sisa tenaga">
+        </div>
+      </div>
+
+      <div id="adv-fields" class="hidden">
+        <div class="grid-2">
+          <div class="form-group"><label>Target Min Reps</label><input type="number" class="form-control" id="log-tmin"></div>
+          <div class="form-group"><label>Target Max Reps</label><input type="number" class="form-control" id="log-tmax"></div>
+        </div>
+        <div class="form-group"><label>Tingkat Nyeri/DOMS (0-10)</label><input type="number" class="form-control" id="log-soreness" min="0" max="10" value="0"></div>
+        <div class="form-group">
+          <label>Kualitas Form</label>
+          <select class="form-control" id="log-form">
+            <option value="good">Sangat Baik</option>
+            <option value="acceptable">Cukup</option>
+            <option value="poor">Buruk</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label style="display:flex; align-items:center; gap:10px; cursor:pointer;"><input type="checkbox" id="log-pain" style="width:20px; height:20px; accent-color:var(--status-heavy);"> Ada rasa sakit / cedera?</label>
+        </div>
+      </div>
+
+      <button type="submit" class="btn mt-1">Simpan Workout</button>
+    </form>
+  </div>
+</aside>
+
+<script>
+// --- Core Data & Library ---
+const exerciseDict = {
+  "Shoulder press": { primary: "deltoid", type: "compound", sec: { "triceps": 0.5, "traps": 0.25 } },
+  "Lateral raise": { primary: "deltoid", type: "isolation", sec: { "traps": 0.25 } },
+  "Bench press": { primary: "chest", type: "compound", sec: { "triceps": 0.5, "deltoid": 0.5 } },
+  "Incline press": { primary: "chest", type: "compound", sec: { "deltoid": 0.5, "triceps": 0.5 } },
+  "Push-up": { primary: "chest", type: "compound", sec: { "triceps": 0.5, "deltoid": 0.5, "abs": 0.25 } },
+  "Cable fly": { primary: "chest", type: "isolation", sec: {} },
+  "Pull-up": { primary: "lats", type: "compound", sec: { "biceps": 0.5, "forearm": 0.5, "traps": 0.25 } },
+  "Lat pulldown": { primary: "lats", type: "compound", sec: { "biceps": 0.5, "forearm": 0.5 } },
+  "Row": { primary: "lats", type: "compound", sec: { "biceps": 0.5, "traps": 0.5, "forearm": 0.5 } },
+  "Barbell curl": { primary: "biceps", type: "isolation", sec: { "forearm": 0.5 } },
+  "Pushdown": { primary: "triceps", type: "isolation", sec: { "forearm": 0.25 } },
+  "Squat": { primary: "quadriceps", type: "compound", sec: { "glutes": 0.5, "hamstrings": 0.5, "calves": 0.25 } },
+  "Leg press": { primary: "quadriceps", type: "compound", sec: { "glutes": 0.5, "hamstrings": 0.25 } },
+  "Romanian deadlift": { primary: "hamstrings", type: "compound", sec: { "glutes": 0.5, "lower back": 0.5 } },
+  "Hip thrust": { primary: "glutes", type: "compound", sec: { "hamstrings": 0.25, "lower back": 0.25 } },
+  "Deadlift": { primary: "hamstrings", type: "compound", sec: { "glutes": 1.0, "lower back": 0.5, "traps": 0.5, "forearm": 0.5 } },
+  "Standing calf raise": { primary: "calves", type: "isolation", sec: {} },
+  "Plank": { primary: "abs", type: "isolation", sec: { "oblique": 0.5, "lower back": 0.25 } }
+};
+
+const muscleList = ["deltoid", "chest", "biceps", "triceps", "forearm", "abs", "oblique", "traps", "lats", "lower back", "glutes", "quadriceps", "hamstrings", "calves"];
+const lowerBody = ["quadriceps", "hamstrings", "glutes", "calves"];
+
+let appData = { workouts: [], cardio: [], settings: { age: 31, hrMaxFormula: "220-age", customHRMax: null } };
+
+// --- Toast Auto-Save Notification ---
+function showToast(message) {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.innerHTML = `<span>💾</span> ${message}`;
+  container.appendChild(toast);
+  setTimeout(() => { if(toast.parentNode) toast.parentNode.removeChild(toast); }, 3000);
+}
+
+function saveData(silent = false) {
+  localStorage.setItem('trainReadyData', JSON.stringify(appData));
+  updateAllCalculations();
+  if(!silent) showToast("Perubahan langsung tersimpan!");
+}
+
+// --- Initialization ---
+function init() {
+  const saved = localStorage.getItem('trainReadyData');
+  if(saved) appData = JSON.parse(saved);
+  setupTabs(); setupMap(); setupForms(); setupSettings();
+  updateAllCalculations();
+  setInterval(updateAllCalculations, 60000);
+}
+
+// --- Tabs & View Toggles ---
+function setupTabs() {
+  const btns = document.querySelectorAll('.nav-btn');
+  const contents = document.querySelectorAll('.tab-content');
+  btns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      btns.forEach(b => b.classList.remove('active'));
+      contents.forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.target).classList.add('active');
+      if(window.innerWidth <= 768 && btn.dataset.target !== 'tab-map') closePanel();
+    });
+  });
+
+  document.getElementById('btn-front').addEventListener('click', (e) => {
+    document.getElementById('svg-front').classList.remove('hidden'); document.getElementById('svg-back').classList.add('hidden');
+    e.target.classList.add('active'); document.getElementById('btn-back').classList.remove('active');
+  });
+  document.getElementById('btn-back').addEventListener('click', (e) => {
+    document.getElementById('svg-back').classList.remove('hidden'); document.getElementById('svg-front').classList.add('hidden');
+    e.target.classList.add('active'); document.getElementById('btn-front').classList.remove('active');
+  });
+  document.getElementById('btn-close-panel').addEventListener('click', closePanel);
+
+  document.querySelectorAll('.toggle-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if(btn.dataset.mode === 'advanced') document.getElementById('adv-fields').classList.remove('hidden');
+      else document.getElementById('adv-fields').classList.add('hidden');
+    });
+  });
+}
+
+// --- Map Interaction ---
+const tooltip = document.getElementById('tooltip');
+function setupMap() {
+  document.querySelectorAll('.muscle-path').forEach(path => {
+    path.addEventListener('click', (e) => openPanel(e.target.dataset.muscle));
+    path.addEventListener('mousemove', (e) => {
+      const muscle = e.target.dataset.muscle;
+      const rec = calculateMuscleRecovery(muscle);
+      document.getElementById('tt-name').innerText = muscle;
+      document.getElementById('tt-status').innerText = rec.statusText;
+      document.getElementById('tt-score').innerText = rec.score;
+      document.getElementById('tt-time').innerText = rec.hoursRemaining + "j";
+      tooltip.style.opacity = 1;
+      tooltip.style.left = (e.clientX + 15) + 'px';
+      tooltip.style.top = (e.clientY + 15) + 'px';
+    });
+    path.addEventListener('mouseleave', () => { tooltip.style.opacity = 0; });
+  });
+}
+
+function openPanel(muscle) {
+  document.getElementById('side-panel').classList.add('open');
+  document.getElementById('sp-title').innerText = muscle;
+  document.getElementById('log-toggle').style.display = "flex";
+  document.getElementById('form-log').style.display = "block";
+  document.getElementById('log-muscle').value = muscle;
+  
+  const sel = document.getElementById('log-exercise');
+  sel.innerHTML = '';
+  Object.keys(exerciseDict).forEach(ex => {
+    if(exerciseDict[ex].primary === muscle) sel.innerHTML += `<option value="${ex}">${ex}</option>`;
+  });
+  sel.innerHTML += `<option value="Other">Lainnya (Custom)</option>`;
+  updateSecondaryMuscles(sel.value);
+  updatePanelStatus(muscle);
+}
+function closePanel() { document.getElementById('side-panel').classList.remove('open'); }
+
+// --- Form Logic ---
+function setupForms() {
+  const exSel = document.getElementById('log-exercise');
+  exSel.addEventListener('change', (e) => updateSecondaryMuscles(e.target.value));
+
+  document.getElementById('form-log').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const ex = exSel.value;
+    const isAdv = document.querySelector('.toggle-btn.active').dataset.mode === 'advanced';
+    
+    let secList = [];
+    document.querySelectorAll('.sec-chk:checked').forEach(chk => {
+      secList.push({ muscle: chk.dataset.m, weight: parseFloat(chk.dataset.w) });
+    });
+
+    const w = {
+      id: Date.now(), date: new Date().toISOString(),
+      muscle: document.getElementById('log-muscle').value, exercise: ex,
+      sets: parseInt(document.getElementById('log-sets').value),
+      repsPerSet: parseInt(document.getElementById('log-reps').value),
+      weight: parseFloat(document.getElementById('log-weight').value),
+      rir: parseInt(document.getElementById('log-rir').value),
+      targetRepMin: isAdv ? parseInt(document.getElementById('log-tmin').value) || 0 : 0,
+      targetRepMax: isAdv ? parseInt(document.getElementById('log-tmax').value) || 0 : 0,
+      soreness: isAdv ? parseInt(document.getElementById('log-soreness').value) : 0,
+      formQuality: isAdv ? document.getElementById('log-form').value : 'acceptable',
+      pain: isAdv ? document.getElementById('log-pain').checked : false,
+      secondary: secList,
+      exerciseType: exerciseDict[ex] ? exerciseDict[ex].type : 'isolation'
+    };
+    appData.workouts.push(w); saveData(); closePanel();
+  });
+
+  document.getElementById('form-cardio').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const symps = Array.from(document.getElementById('c-symp').selectedOptions).map(o => o.value);
+    appData.cardio.push({
+      id: Date.now(), date: new Date().toISOString(),
+      type: document.getElementById('c-type').value,
+      duration: parseInt(document.getElementById('c-dur').value),
+      avgHR: parseInt(document.getElementById('c-hr').value) || 0,
+      rpe: parseInt(document.getElementById('c-rpe').value),
+      symptoms: symps
+    });
+    saveData(); e.target.reset();
+  });
+}
+
+function updateSecondaryMuscles(exName) {
+  const container = document.getElementById('sec-muscles-container');
+  const list = document.getElementById('sec-muscles-list');
+  list.innerHTML = '';
+  if(exerciseDict[exName] && exerciseDict[exName].sec && Object.keys(exerciseDict[exName].sec).length > 0) {
+    container.classList.remove('hidden');
+    Object.keys(exerciseDict[exName].sec).forEach(m => {
+      const w = exerciseDict[exName].sec[m];
+      list.innerHTML += `<label style="display:flex; align-items:center; gap:8px; margin-top:5px; color:#fff;"><input type="checkbox" class="sec-chk" data-m="${m}" data-w="${w}" checked style="accent-color:var(--primary)"> ${m} (${w*100}%)</label>`;
+    });
+  } else { container.classList.add('hidden'); }
+}
+
+// --- Calculations & Saitama Logic ---
+function calculateMuscleRecovery(muscle) {
+  const now = Date.now();
+  const window = 96 * 60 * 60 * 1000;
+  const recent = appData.workouts.filter(w => {
+    if(now - new Date(w.date).getTime() > window) return false;
+    return w.muscle === muscle || (w.secondary && w.secondary.find(s => s.muscle === muscle));
+  }).sort((a,b) => new Date(b.date) - new Date(a.date));
+
+  if(recent.length === 0) return { score: 100, hoursRemaining: 0, statusText: "Siap (Ready)", statusClass: "status-ready", conf: "Tinggi" };
+
+  let maxHoursRem = 0; let minScore = 100; let hasPain = false;
+  recent.forEach(w => {
+    let base = 24;
+    const isPrimary = w.muscle === muscle;
+    const secObj = isPrimary ? null : w.secondary.find(s => s.muscle === muscle);
+    
+    if(w.sets <= 4 && w.rir >= 3 && w.soreness <= 3) base = 24;
+    else if(w.sets <= 8 || w.rir === 2) base = 36;
+    else if(w.sets <= 12 || w.rir === 1) base = 48;
+    else base = 72;
+
+    if(w.rir === 0) base += 24;
+    if(w.rir === 1) base += 12;
+    if(w.exerciseType === "compound") base += 12;
+    if(w.soreness >= 7) base += 24;
+    else if(w.soreness >= 4) base += 12;
+    if(lowerBody.includes(muscle)) base += 12;
+
+    if(!isPrimary && secObj) base *= secObj.weight;
+    if(w.pain) { base += 48; hasPain = true; }
+
+    const elapsedHrs = (Date.now() - new Date(w.date).getTime()) / (1000 * 60 * 60);
+    const rem = Math.max(0, base - elapsedHrs);
+    if(rem > maxHoursRem) maxHoursRem = rem;
+  });
+
+  maxHoursRem = Math.round(maxHoursRem);
+  if(hasPain) minScore = 0;
+  else if(maxHoursRem <= 0) minScore = 100;
+  else if(maxHoursRem < 24) minScore = 80;
+  else if(maxHoursRem < 48) minScore = 60;
+  else if(maxHoursRem < 72) minScore = 30;
+  else minScore = 10;
+
+  let text = "Ready"; let cls = "status-ready";
+  if(minScore < 25) { text = "Kelelahan Ekstrem / Risiko"; cls = "status-high-risk"; }
+  else if(minScore < 50) { text = "Butuh Pemulihan (Heavy)"; cls = "status-heavy"; }
+  else if(minScore < 70) { text = "Latihan Ringan (Moderate)"; cls = "status-moderate"; }
+  else if(minScore < 90) { text = "Pemulihan Ringan (Mild)"; cls = "status-mild"; }
+
+  return { score: minScore, hoursRemaining: maxHoursRem, statusText: text, statusClass: cls, conf: recent[0].rir === undefined ? "Menengah" : "Tinggi" };
+}
+
+function updateAllCalculations() {
+  const results = {};
+  muscleList.forEach(m => {
+    results[m] = calculateMuscleRecovery(m);
+    document.querySelectorAll(`.muscle-path[data-muscle="${m}"]`).forEach(path => {
+      path.className.baseVal = `muscle-path ${results[m].statusClass}`;
+    });
+  });
+  
+  // Weekly Stats
+  let wSets = 0; let weekMins = 0;
+  const now = Date.now();
+  appData.workouts.forEach(w => { if(now - new Date(w.date).getTime() < 7*24*60*60*1000) wSets += w.sets; });
+  appData.cardio.forEach(c => { if(now - new Date(c.date).getTime() < 7*24*60*60*1000) weekMins += c.duration; });
+
+  // Update Saitama Logic
+  const saitamaContainer = document.getElementById('saitama-container');
+  const saitamaText = document.getElementById('saitama-text');
+  const saitamaBar = document.getElementById('saitama-bar');
+  
+  // Weights target ~40 sets/week, Cardio ~150 mins
+  let setProgress = Math.min(100, (wSets / 40) * 100) * 0.6;
+  let cardioProgress = Math.min(100, (weekMins / 150) * 100) * 0.4;
+  let totalProgress = Math.min(100, setProgress + cardioProgress);
+  
+  saitamaBar.style.width = `${totalProgress}%`;
+
+  if(totalProgress === 0) {
+    saitamaContainer.className = "card saitama-card";
+    saitamaText.innerText = '"Ok. Kapan kita mulai latihannya? Jangan cuma diam."';
+  } else if(totalProgress < 40) {
+    saitamaContainer.className = "card saitama-card";
+    saitamaText.innerText = '"100 Push-up, 100 Sit-up, 100 Squat, dan lari 10km! Ayo terus konsisten!"';
+  } else if(totalProgress < 80) {
+    saitamaContainer.className = "card saitama-card";
+    saitamaText.innerText = '"Ototmu sudah mulai panas. Terus paksakan walau tanpa AC!"';
+  } else {
+    saitamaContainer.className = "card saitama-card is-serious";
+    saitamaText.innerText = '"SERIOUS SERIES: Latihanmu luar biasa! Terus hancurkan limitermu!!"';
+  }
+
+  // Updates UI views
+  renderDashboard(results, wSets); renderSplitPlanner(results); renderOverload(); renderCardio(weekMins);
+  if(document.getElementById('side-panel').classList.contains('open')) updatePanelStatus(document.getElementById('log-muscle').value);
+}
+
+function updatePanelStatus(muscle) {
+  const rec = calculateMuscleRecovery(muscle);
+  document.getElementById('sp-status-text').innerText = rec.statusText;
+  document.getElementById('sp-status-text').className = `badge ${rec.statusClass.replace('status-', '')}`;
+  document.getElementById('sp-readiness').innerText = rec.score;
+  document.getElementById('sp-timer').innerText = rec.hoursRemaining + "j";
+  document.getElementById('sp-progress').style.width = rec.score + "%";
+  
+  let recTxt = "";
+  if(rec.score >= 70) recTxt = "Latihan normal & progressive overload diizinkan.";
+  else if(rec.score >= 50) recTxt = "Hanya disarankan latihan ringan (tanpa overload).";
+  else recTxt = "Direkomendasikan untuk istirahat. Hindari melatih otot ini.";
+  document.getElementById('sp-rec').innerHTML = recTxt;
+}
+
+function renderDashboard(results, wSets) {
+  let ready = []; let avoid = []; let light = [];
+  muscleList.forEach(m => {
+    if(results[m].score >= 70) ready.push(m); else if(results[m].score >= 50) light.push(m); else avoid.push(m);
+  });
+
+  document.getElementById('dash-overview').innerHTML = `
+    <div style="background:rgba(255,255,255,0.05); padding:20px; border-radius:12px; border:1px solid rgba(255,255,255,0.1);">
+      <p style="color:var(--text-muted); font-size:0.9rem;">Total Set Mingguan</p><h3 style="color:#fff; font-size:1.8rem; margin:5px 0;">${wSets}</h3>
+    </div>
+    <div style="background:rgba(16,185,129,0.1); padding:20px; border-radius:12px; border:1px solid rgba(16,185,129,0.3);">
+      <p style="color:#34d399; font-size:0.9rem;">Otot Siap Dilatih</p><h3 style="color:#10b981; font-size:1.8rem; margin:5px 0;">${ready.length}</h3>
+    </div>
+    <div style="background:rgba(239,68,68,0.1); padding:20px; border-radius:12px; border:1px solid rgba(239,68,68,0.3);">
+      <p style="color:#f87171; font-size:0.9rem;">Butuh Istirahat</p><h3 style="color:#ef4444; font-size:1.8rem; margin:5px 0;">${avoid.length}</h3>
+    </div>
+  `;
+  document.getElementById('dash-suggestion').innerHTML = `
+    <p><strong><span style="color:var(--status-ready)">Siap:</span></strong> ${ready.join(', ') || 'Belum Ada'}</p>
+    <p class="mt-1"><strong><span style="color:var(--status-mild)">Ringan Saja:</span></strong> ${light.join(', ') || 'Belum Ada'}</p>
+    <p class="mt-1"><strong><span style="color:var(--status-heavy)">Hindari:</span></strong> ${avoid.join(', ') || 'Belum Ada'}</p>
+  `;
+}
+
+function renderSplitPlanner(results) {
+  let isPushOk = results['chest'].score >= 70 && results['deltoid'].score >= 70 && results['triceps'].score >= 50;
+  let isPullOk = results['lats'].score >= 70 && results['biceps'].score >= 50;
+  let isLegOk = results['quadriceps'].score >= 70 && results['hamstrings'].score >= 70;
+  
+  let rec = "Rest Day (Pemulihan)"; let desc = "Banyak otot masih lelah. Istirahat atau Kardio Zone 2 ringan.";
+  if(isPushOk) { rec = "Push Day"; desc = "Dada, Bahu, dan Tricep siap untuk progressive overload."; }
+  else if(isPullOk) { rec = "Pull Day"; desc = "Punggung (Lats) dan Bicep siap dilatih."; }
+  else if(isLegOk) { rec = "Leg Day"; desc = "Otot kaki bawah sudah pulih sepenuhnya."; }
+  
+  document.getElementById('split-result').innerHTML = `
+    <div style="background:rgba(59,130,246,0.1); padding:20px; border-radius:12px; border:1px solid rgba(59,130,246,0.3); margin-top:15px;">
+      <h3 style="font-size:1.5rem; color:var(--primary); margin-bottom:8px;">${rec}</h3><p style="color:var(--text-main);">${desc}</p>
+    </div>`;
+}
+
+function renderOverload() {
+  const container = document.getElementById('overload-list'); container.innerHTML = '';
+  let exMap = {};
+  appData.workouts.forEach(w => { if(!exMap[w.exercise] || new Date(w.date) > new Date(exMap[w.exercise].date)) exMap[w.exercise] = w; });
+
+  Object.values(exMap).forEach(w => {
+    const rec = calculateMuscleRecovery(w.muscle);
+    if(rec.score < 70) return;
+    let advice = `Pertahankan beban ${w.weight}kg. Usahakan tambah repetisi.`;
+    if(w.rir >= 2 && w.soreness <= 4 && !w.pain) advice = `<span style="color:var(--status-ready); font-weight:600;">Naikkan beban sedikit dari ${w.weight}kg.</span>`;
+    else if(w.rir === 0) advice = `Tetap ${w.weight}kg. RIR sebelumnya 0 (Gagal/Failure).`;
+    if(w.pain || w.soreness >= 7) advice = `<span style="color:var(--status-heavy)">Jangan progress. Fokus teknik/pemulihan.</span>`;
+    
+    container.innerHTML += `
+      <div style="background:rgba(0,0,0,0.2); padding:20px; border-radius:12px; border:1px solid var(--panel-border);">
+        <h4 style="color:#fff; margin-bottom:10px;">${w.exercise}</h4>
+        <p class="text-sm text-muted mb-1">Terakhir: ${w.sets}x${w.repsPerSet} @ ${w.weight}kg (RIR: ${w.rir})</p>
+        <p style="font-size:0.95rem;">${advice}</p>
+      </div>`;
+  });
+  if(container.innerHTML==='') container.innerHTML = '<p class="text-muted">Belum ada peluang overload. Catat latihan lebih banyak atau tunggu otot pulih.</p>';
+}
+
+function renderCardio(weekMins) {
+  const hrMax = appData.settings.customHRMax || (220 - appData.settings.age);
+  const z2Min = Math.round(hrMax * 0.60); const z2Max = Math.round(hrMax * 0.70);
+  let pct = Math.min(100, (weekMins/150)*100);
+  
+  document.getElementById('cardio-summary').innerHTML = `
+    <div class="grid-2 mb-1">
+      <div style="background:rgba(0,0,0,0.2); padding:15px; border-radius:10px; border:1px solid var(--panel-border);">HR Max: <strong style="color:#fff;">${hrMax} bpm</strong></div>
+      <div style="background:rgba(0,0,0,0.2); padding:15px; border-radius:10px; border:1px solid var(--panel-border);">Zone 2: <strong style="color:var(--accent);">${z2Min} - ${z2Max} bpm</strong></div>
+    </div>
+    <div style="background:rgba(0,0,0,0.2); padding:20px; border-radius:12px; border:1px solid var(--panel-border);">
+      <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+        <span>Mingguan (Kardio):</span><strong style="color:#fff;">${weekMins} / 150 min <span class="text-muted">(ESC Min)</span></strong>
+      </div>
+      <div style="width: 100%; background: rgba(255,255,255,0.1); height: 8px; border-radius: 4px; overflow: hidden;"><div style="height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); transition: width 0.5s ease; width:${pct}%"></div></div>
+    </div>`;
+  
+  let runRec = "Zone 2 Lari Ringan: 30-45 menit.";
+  if(weekMins >= 150) runRec = "Target dasar tercapai! Opsional: Latihan Interval 4x3mnt @ 85-90% HRMax.";
+  document.getElementById('running-recs').innerHTML = `
+    <h3 style="color:var(--accent); margin-top:10px;">Sesi Lari Berikutnya:</h3>
+    <div style="background:rgba(14,165,233,0.1); padding:20px; border-radius:12px; border:1px solid rgba(14,165,233,0.3); margin-top:10px;">
+      <p style="font-size:1.1rem; color:#fff; font-weight:600;">${runRec}</p><p class="text-muted text-sm mt-1">Hindari lari interval jika detak jantung istirahat naik.</p>
+    </div>`;
+}
+
+function setupSettings() {
+  document.getElementById('set-age').value = appData.settings.age;
+  document.getElementById('set-hrmax').value = appData.settings.customHRMax || '';
+
+  // Auto-save logic on input change for settings
+  document.querySelectorAll('.auto-save-input').forEach(input => {
+    input.addEventListener('change', () => {
+      appData.settings.age = parseInt(document.getElementById('set-age').value) || 31;
+      appData.settings.customHRMax = parseInt(document.getElementById('set-hrmax').value) || null;
+      saveData();
+    });
+  });
+  
+  document.getElementById('btn-save-settings').addEventListener('click', () => {
+    appData.settings.age = parseInt(document.getElementById('set-age').value) || 31;
+    appData.settings.customHRMax = parseInt(document.getElementById('set-hrmax').value) || null;
+    saveData();
+  });
+
+  document.getElementById('btn-reset').addEventListener('click', () => {
+    if(confirm("Yakin ingin menghapus seluruh history latihan?")) { localStorage.removeItem('trainReadyData'); location.reload(); }
+  });
+
+  document.getElementById('btn-export').addEventListener('click', () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appData));
+    const a = document.createElement('a'); a.href = dataStr; a.download = "trainready_backup.json"; a.click();
+  });
+  
+  let libHtml = "";
+  Object.keys(exerciseDict).forEach(ex => {
+    libHtml += `<span class="badge" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); margin:5px; color:#e2e8f0;">${ex} <span style="color:var(--primary)">(${exerciseDict[ex].primary})</span></span>`;
+  });
+  document.getElementById('library-list').innerHTML = libHtml;
+}
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
